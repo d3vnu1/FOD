@@ -1,0 +1,28 @@
+Source: hailo-detector
+Section: misc
+Priority: optional
+Maintainer: Hailo Detector Team <hailo-detector@example.com>
+Build-Depends: debhelper-compat (= 13), python3, python3-pip, curl
+Standards-Version: 4.6.0
+
+Package: hailo-detector
+Architecture: arm64
+Depends: ${misc:Depends},
+         python3 (>= 3.11),
+         python3-opencv,
+         python3-numpy,
+         v4l-utils,
+         hailort (>= 4.17.0),
+         curl
+Recommends: hailo-tappas-core
+Description: Hailo-8L Object Detection Streaming Service
+ A headless object detection service that captures video from a USB camera,
+ runs YOLOv8 inference on a Hailo-8L accelerator, and streams the annotated
+ video via HTTP MJPEG.
+ .
+ Features:
+  - Real-time object detection using YOLOv8n on Hailo-8L (26 TOPS)
+  - USB camera support via V4L2 (tested with DJI Osmo Pocket 3)
+  - MJPEG streaming over HTTP for browser viewing
+  - Web UI with real-time statistics
+  - Headless operation optimized for Raspberry Pi CM5

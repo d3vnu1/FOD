@@ -1,0 +1,30 @@
+[Unit]
+Description=Hailo-8L Object Detection Streaming Service
+Documentation=https://github.com/yourusername/hailo-detector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hailo-detector
+Group=hailo-detector
+WorkingDirectory=/opt/hailo-detector
+ExecStart=/opt/hailo-detector/venv/bin/python -m hailo_detector
+Restart=on-failure
+RestartSec=5
+
+# Resource limits
+MemoryMax=1G
+CPUQuota=200%
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=hailo-detector
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

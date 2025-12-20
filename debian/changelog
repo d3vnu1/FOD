@@ -1,0 +1,11 @@
+hailo-detector (1.0.0) bookworm; urgency=medium
+
+  * Initial release
+  * YOLOv8n object detection with Hailo-8L accelerator
+  * MJPEG streaming server with web UI
+  * Support for USB cameras (V4L2/UVC)
+  * Optimized for Raspberry Pi CM5
+  * Headless operation with systemd service
+  * Real-time performance monitoring
+
+ -- Hailo Detector Team <hailo-detector@example.com>  Sat, 20 Dec 2025 00:00:00 +0000

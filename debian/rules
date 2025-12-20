@@ -1,0 +1,36 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+export PYBUILD_NAME=hailo-detector
+export PYBUILD_DISABLE=test
+
+%:
+	dh $@ --with python3 --buildsystem=pybuild
+
+override_dh_auto_clean:
+	rm -rf build/
+	rm -rf *.egg-info/
+	find . -name __pycache__ -type d -exec rm -rf {} + || true
+	find . -name "*.pyc" -delete || true
+	dh_auto_clean
+
+override_dh_auto_build:
+	# Build is handled by pybuild
+	dh_auto_build
+
+override_dh_auto_install:
+	dh_auto_install
+	# Install additional files
+	install -D -m 644 config/config.yaml.example debian/hailo-detector/etc/hailo-detector/config.yaml.example
+	install -D -m 755 scripts/download-model.sh debian/hailo-detector/usr/share/hailo-detector/download-model.sh
+	install -D -m 755 scripts/test-camera.py debian/hailo-detector/usr/share/hailo-detector/test-camera.py
+	install -D -m 755 scripts/test-stream.py debian/hailo-detector/usr/share/hailo-detector/test-stream.py
+	install -D -m 644 src/hailo_detector/web/index.html debian/hailo-detector/opt/hailo-detector/web/index.html
+	# Install systemd service
+	install -D -m 644 debian/hailo-detector.service debian/hailo-detector/lib/systemd/system/hailo-detector.service
+
+override_dh_installdocs:
+	dh_installdocs README.md

@@ -1,0 +1,32 @@
+#!/bin/sh
+set -e
+
+# Pre-removal script for hailo-detector
+
+case "$1" in
+    remove|upgrade|deconfigure)
+        # Stop the service if running
+        if systemctl is-active --quiet hailo-detector.service; then
+            echo "Stopping hailo-detector service..."
+            systemctl stop hailo-detector.service
+        fi
+
+        # Disable the service
+        if systemctl is-enabled --quiet hailo-detector.service; then
+            echo "Disabling hailo-detector service..."
+            systemctl disable hailo-detector.service
+        fi
+        ;;
+
+    failed-upgrade)
+        ;;
+
+    *)
+        echo "prerm called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

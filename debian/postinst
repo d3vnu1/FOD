@@ -1,0 +1,104 @@
+#!/bin/sh
+set -e
+
+# Post-installation script for hailo-detector
+
+case "$1" in
+    configure)
+        # Create system user if it doesn't exist
+        if ! getent passwd hailo-detector >/dev/null; then
+            adduser --system --group --no-create-home \
+                --home /opt/hailo-detector \
+                --shell /usr/sbin/nologin \
+                --disabled-login \
+                hailo-detector
+        fi
+
+        # Create necessary directories
+        mkdir -p /opt/hailo-detector/models
+        mkdir -p /opt/hailo-detector/logs
+        mkdir -p /etc/hailo-detector
+
+        # Copy example config if no config exists
+        if [ ! -f /etc/hailo-detector/config.yaml ]; then
+            cp /etc/hailo-detector/config.yaml.example /etc/hailo-detector/config.yaml
+        fi
+
+        # Install uv if not present
+        if ! command -v uv >/dev/null 2>&1; then
+            echo "Installing uv package manager..."
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+            # Add uv to PATH for this script
+            export PATH="$HOME/.cargo/bin:$PATH"
+        fi
+
+        # Create virtual environment using uv
+        echo "Creating Python virtual environment..."
+        if [ ! -d /opt/hailo-detector/venv ]; then
+            uv venv /opt/hailo-detector/venv --python python3.11
+        fi
+
+        # Install Python dependencies using uv
+        echo "Installing Python dependencies..."
+        /opt/hailo-detector/venv/bin/python -m pip install --upgrade pip
+        /opt/hailo-detector/venv/bin/python -m pip install \
+            opencv-python==4.8.1.78 \
+            numpy==1.24.3 \
+            flask==3.0.0 \
+            pyyaml==6.0.1 \
+            pydantic==2.5.0 \
+            pydantic-settings==2.1.0
+
+        # Download YOLOv8n HEF model if not present
+        if [ ! -f /opt/hailo-detector/models/yolov8n.hef ]; then
+            echo "Downloading YOLOv8n HEF model..."
+            /usr/share/hailo-detector/download-model.sh || echo "Warning: Failed to download model. You can download it manually later."
+        fi
+
+        # Set correct ownership
+        chown -R hailo-detector:hailo-detector /opt/hailo-detector
+        chown -R hailo-detector:hailo-detector /etc/hailo-detector
+
+        # Add hailo-detector user to video group (for camera access)
+        if getent group video >/dev/null; then
+            usermod -a -G video hailo-detector
+        fi
+
+        # Add hailo-detector user to hailo group (for accelerator access)
+        if getent group hailo >/dev/null; then
+            usermod -a -G hailo hailo-detector
+        fi
+
+        # Reload systemd daemon
+        systemctl daemon-reload
+
+        # Enable and start the service
+        systemctl enable hailo-detector.service
+        systemctl start hailo-detector.service
+
+        echo ""
+        echo "======================================================================"
+        echo "Hailo Detector has been installed successfully!"
+        echo ""
+        echo "Configuration file: /etc/hailo-detector/config.yaml"
+        echo "Service status: systemctl status hailo-detector"
+        echo "View logs: journalctl -u hailo-detector -f"
+        echo ""
+        echo "The web interface will be available at:"
+        echo "  http://$(hostname -I | awk '{print $1}'):8080/"
+        echo ""
+        echo "======================================================================"
+        ;;
+
+    abort-upgrade|abort-remove|abort-deconfigure)
+        ;;
+
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

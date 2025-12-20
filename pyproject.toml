@@ -1,0 +1,78 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hailo-detector"
+version = "1.0.0"
+description = "Hailo-8L Object Detection Streaming Service for Raspberry Pi CM5"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "Hailo Detector Team", email = "hailo-detector@example.com"}
+]
+keywords = ["hailo", "object-detection", "yolov8", "ai", "computer-vision", "raspberry-pi"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Multimedia :: Video",
+]
+
+dependencies = [
+    "opencv-python==4.8.1.78",
+    "numpy==1.24.3",
+    "flask==3.0.0",
+    "pyyaml==6.0.1",
+    "pydantic==2.5.0",
+    "pydantic-settings==2.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "black>=23.7.0",
+    "flake8>=6.1.0",
+    "mypy>=1.5.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/hailo-detector"
+Documentation = "https://github.com/yourusername/hailo-detector#readme"
+Repository = "https://github.com/yourusername/hailo-detector.git"
+Issues = "https://github.com/yourusername/hailo-detector/issues"
+
+[project.scripts]
+hailo-detector = "hailo_detector.__main__:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["hailo_detector*"]
+
+[tool.setuptools.package-data]
+hailo_detector = ["web/*.html"]
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = "cv2.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "hailo_platform.*"
+ignore_missing_imports = true
