@@ -28,27 +28,26 @@ class HailoInference:
         self.output_vstreams = None
         self.input_shape = None
         self.is_initialized = False
+        self.inference_count = 0  # For debug logging throttling
+
+        # Pre-allocated buffers for fast inference
+        self.configured_infer_model = None
+        self.output_buffers = None
+        self.bindings = None
+        self.output_names = None
 
         # Try to import hailo_platform
         try:
             from hailo_platform import (
                 HEF,
                 VDevice,
-                HailoStreamInterface,
-                InferVStreams,
-                ConfigureParams,
-                InputVStreamParams,
-                OutputVStreamParams,
-                FormatType
+                FormatType,
+                HailoSchedulingAlgorithm
             )
             self.HEF = HEF
             self.VDevice = VDevice
-            self.HailoStreamInterface = HailoStreamInterface
-            self.InferVStreams = InferVStreams
-            self.ConfigureParams = ConfigureParams
-            self.InputVStreamParams = InputVStreamParams
-            self.OutputVStreamParams = OutputVStreamParams
             self.FormatType = FormatType
+            self.HailoSchedulingAlgorithm = HailoSchedulingAlgorithm
             logger.info("hailo_platform module imported successfully")
         except ImportError as e:
             logger.error(f"Failed to import hailo_platform: {e}")
@@ -57,7 +56,7 @@ class HailoInference:
 
     def initialize(self) -> bool:
         """
-        Initialize Hailo device and load model.
+        Initialize Hailo device and load model using create_infer_model API.
 
         Returns:
             True if successful, False otherwise
@@ -65,43 +64,62 @@ class HailoInference:
         try:
             logger.info(f"Loading HEF model: {self.model_path}")
 
-            # Load HEF
-            hef = self.HEF(self.model_path)
-
-            # Create VDevice
+            # Create VDevice with scheduling params
             params = self.VDevice.create_params()
+            params.scheduling_algorithm = self.HailoSchedulingAlgorithm.ROUND_ROBIN
             self.device = self.VDevice(params)
-
             logger.info("Hailo device created successfully")
 
-            # Configure network group
-            network_group = self.device.configure(hef)[0]
-            self.network_group = network_group
+            # Create infer model (simpler API than InferVStreams)
+            self.infer_model = self.device.create_infer_model(self.model_path)
+            logger.info("Infer model created successfully")
 
-            # Get input/output parameters
-            input_vstream_params = self.InputVStreamParams.make_from_network_group(
-                network_group, quantized=False, format_type=self.FormatType.FLOAT32
-            )
-            output_vstream_params = self.OutputVStreamParams.make_from_network_group(
-                network_group, quantized=False, format_type=self.FormatType.FLOAT32
-            )
+            # Set batch size
+            self.infer_model.set_batch_size(1)
+            logger.info("Batch size set to 1")
 
-            # Get input shape
-            self.input_shape = input_vstream_params[0].shape
+            # Set input format to UINT8 (as per working example)
+            self.infer_model.input().set_format_type(self.FormatType.UINT8)
+            logger.info("Input format set to UINT8")
 
+            # Get input shape (shape is a property, not a method)
+            self.input_shape = self.infer_model.input().shape
             logger.info(f"Model input shape: {self.input_shape}")
 
-            # Create inference pipeline
-            self.infer_pipeline = self.InferVStreams(
-                network_group, input_vstream_params, output_vstream_params
-            )
+            # Get output info (output_names is a property, not a method)
+            self.output_names = self.infer_model.output_names
+            logger.info(f"Output names: {self.output_names}")
+
+            # Pre-configure model and allocate buffers for fast inference
+            logger.info("Pre-allocating buffers for optimized inference...")
+            self.configured_infer_model = self.infer_model.configure()
+
+            # Allocate output buffers once
+            self.output_buffers = {}
+            for name in self.output_names:
+                output_shape = self.infer_model.output(name).shape
+                output_size = np.prod(output_shape)
+                self.output_buffers[name] = np.empty(output_size, dtype=np.float32)
+                logger.info(f"Allocated buffer for {name}: shape={output_shape}, size={output_size}")
+
+            # Create bindings once
+            self.bindings = self.configured_infer_model.create_bindings()
+
+            # Set output buffers once
+            for name in self.output_names:
+                self.bindings.output(name).set_buffer(self.output_buffers[name])
+
+            logger.info("Buffers pre-allocated successfully")
 
             self.is_initialized = True
             logger.info("Hailo inference initialized successfully")
             return True
 
         except Exception as e:
+            import traceback
             logger.error(f"Failed to initialize Hailo inference: {e}")
+            logger.error(f"Exception type: {type(e).__name__}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
             self.is_initialized = False
             return False
 
@@ -113,26 +131,22 @@ class HailoInference:
             image: Input image in BGR format (640x640x3)
 
         Returns:
-            Preprocessed image ready for inference
+            Preprocessed image ready for inference (UINT8, RGB)
         """
         # Convert BGR to RGB
         image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-        # Normalize to [0, 1]
-        image_normalized = image_rgb.astype(np.float32) / 255.0
+        # Ensure UINT8 format [0-255]
+        image_uint8 = image_rgb.astype(np.uint8)
 
-        # Add batch dimension if needed
-        if len(image_normalized.shape) == 3:
-            image_normalized = np.expand_dims(image_normalized, axis=0)
-
-        return image_normalized
+        return image_uint8
 
     def infer(self, image: np.ndarray) -> Optional[dict]:
         """
         Run inference on preprocessed image.
 
         Args:
-            image: Preprocessed image (1, H, W, 3) in RGB format, float32, [0, 1]
+            image: Preprocessed image (H, W, 3) in RGB format, uint8, [0-255]
 
         Returns:
             Dictionary of output tensors, or None if failed
@@ -142,27 +156,48 @@ class HailoInference:
             return None
 
         try:
-            # Prepare input dictionary
-            input_data = {list(self.infer_pipeline.input_vstreams.keys())[0]: image}
+            # Use pre-allocated buffers and bindings for fast inference
+            # Set input tensor (only thing that changes each frame)
+            self.bindings.input().set_buffer(image)
 
-            # Run inference
-            with self.infer_pipeline:
-                output_dict = self.infer_pipeline.infer(input_data)
+            # Run inference with timeout (5000ms = 5 seconds)
+            self.configured_infer_model.run([self.bindings], timeout=5000)
 
-            return output_dict
+            # Get output from pre-allocated buffers and reshape
+            results = {}
+            for name in self.output_names:
+                output_shape = self.infer_model.output(name).shape
+                # Return view of buffer (no copy needed - postprocessing uses it immediately)
+                results[name] = self.output_buffers[name].reshape(output_shape)
+
+            return results
 
         except Exception as e:
+            import traceback
             logger.error(f"Inference failed: {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return None
 
     def cleanup(self):
         """Release Hailo resources."""
         try:
-            if self.network_group is not None:
-                logger.info("Releasing Hailo network group")
-                self.network_group = None
+            if hasattr(self, 'configured_infer_model') and self.configured_infer_model is not None:
+                logger.info("Releasing configured infer model")
+                self.configured_infer_model = None
 
-            if self.device is not None:
+            if hasattr(self, 'bindings') and self.bindings is not None:
+                logger.info("Releasing bindings")
+                self.bindings = None
+
+            if hasattr(self, 'output_buffers') and self.output_buffers is not None:
+                logger.info("Releasing output buffers")
+                self.output_buffers = None
+
+            if hasattr(self, 'infer_model') and self.infer_model is not None:
+                logger.info("Releasing Hailo infer model")
+                self.infer_model = None
+
+            if hasattr(self, 'device') and self.device is not None:
                 logger.info("Releasing Hailo device")
                 self.device = None
 

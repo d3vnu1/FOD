@@ -29,25 +29,31 @@ case "$1" in
             echo "Installing uv package manager..."
             curl -LsSf https://astral.sh/uv/install.sh | sh
             # Add uv to PATH for this script
-            export PATH="$HOME/.cargo/bin:$PATH"
+            export PATH="$HOME/.local/bin:$PATH"
         fi
 
-        # Create virtual environment using uv
+        # Create virtual environment using uv with system site packages
+        # This allows access to hailo_platform and other system-installed packages
         echo "Creating Python virtual environment..."
         if [ ! -d /opt/hailo-detector/venv ]; then
-            uv venv /opt/hailo-detector/venv --python python3.11
+            $HOME/.local/bin/uv venv /opt/hailo-detector/venv --python python3.11 --system-site-packages
         fi
 
         # Install Python dependencies using uv
         echo "Installing Python dependencies..."
-        /opt/hailo-detector/venv/bin/python -m pip install --upgrade pip
-        /opt/hailo-detector/venv/bin/python -m pip install \
+        $HOME/.local/bin/uv pip install --python /opt/hailo-detector/venv/bin/python \
             opencv-python==4.8.1.78 \
             numpy==1.24.3 \
             flask==3.0.0 \
             pyyaml==6.0.1 \
             pydantic==2.5.0 \
             pydantic-settings==2.1.0
+
+        # Copy the installed package to the venv
+        echo "Installing hailo-detector package to venv..."
+        if [ -d /usr/lib/python3.11/dist-packages/hailo_detector ]; then
+            cp -r /usr/lib/python3.11/dist-packages/hailo_detector* /opt/hailo-detector/venv/lib/python3.11/site-packages/
+        fi
 
         # Download YOLOv8n HEF model if not present
         if [ ! -f /opt/hailo-detector/models/yolov8n.hef ]; then
