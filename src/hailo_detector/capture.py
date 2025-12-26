@@ -41,8 +41,16 @@ class VideoCapture:
         try:
             logger.info(f"Opening video device: {self.config.device}")
 
-            # Create VideoCapture with V4L2 backend
-            self.cap = cv2.VideoCapture(self.config.device, cv2.CAP_V4L2)
+            # Detect if source is a video file or camera device
+            is_video_file = self.config.device.endswith(('.mp4', '.avi', '.mkv', '.mov', '.webm'))
+
+            if is_video_file:
+                # Use default backend for video files
+                logger.info(f"Detected video file: {self.config.device}")
+                self.cap = cv2.VideoCapture(self.config.device)
+            else:
+                # Use V4L2 backend for camera devices
+                self.cap = cv2.VideoCapture(self.config.device, cv2.CAP_V4L2)
 
             if not self.cap.isOpened():
                 logger.error(f"Failed to open {self.config.device}")

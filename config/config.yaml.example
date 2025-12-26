@@ -1,53 +1,22 @@
-# Hailo Detector Configuration File
-# This is an example configuration with all available options and their defaults
+# FleeKey Object Detection Configuration
+# Example configuration with all available options
 
-# Video capture settings
 video:
-  # V4L2 device path (usually /dev/video0 for first camera)
   device: "/dev/video0"
-
-  # Capture resolution - DJI Osmo Pocket 3 supports 1920x1080
   width: 1920
   height: 1080
-
-  # Frames per second (30 is optimal for real-time detection)
   fps: 30
 
-# Inference settings
 inference:
-  # Path to YOLOv8n HEF model file
-  # This model is downloaded automatically during installation
-  model_path: "/opt/hailo-detector/models/yolov8n.hef"
-
-  # Confidence threshold for detections (0.0 to 1.0)
-  # Lower values = more detections but more false positives
-  # Higher values = fewer detections but more accurate
+  model_path: "/opt/hailo-detector/models/yolov8s_h8.hef"
   confidence_threshold: 0.5
-
-  # Non-Maximum Suppression (NMS) threshold (0.0 to 1.0)
-  # Used to eliminate overlapping bounding boxes
-  # Lower values = more aggressive suppression
   nms_threshold: 0.45
-
-  # Model input size (usually 640 for YOLOv8n)
-  # Must match the model's expected input size
   input_size: 640
 
-# Streaming settings
 stream:
-  # Bind address (0.0.0.0 = all interfaces, 127.0.0.1 = localhost only)
   host: "0.0.0.0"
-
-  # HTTP server port
   port: 8080
-
-  # JPEG compression quality (1-100)
-  # Higher values = better quality but more bandwidth
-  # 80 is a good balance for most use cases
   jpeg_quality: 80
 
-# Logging configuration
 logging:
-  # Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
-  # Use DEBUG for troubleshooting, INFO for normal operation
   level: "INFO"

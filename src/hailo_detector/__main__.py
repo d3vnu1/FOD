@@ -1,5 +1,5 @@
 """
-Main entry point for the Hailo detector service.
+Main entry point for FleeKey Object Detection service.
 """
 
 import os
@@ -53,7 +53,7 @@ def main():
     global logger, shutdown_flag
 
     # Parse command line arguments
-    parser = argparse.ArgumentParser(description='Hailo-8L Object Detection Service')
+    parser = argparse.ArgumentParser(description='FleeKey Object Detection Service')
     parser.add_argument(
         '-c', '--config',
         default='/etc/hailo-detector/config.yaml',
@@ -79,7 +79,7 @@ def main():
     logger = logging.getLogger(__name__)
 
     logger.info("=" * 70)
-    logger.info("Hailo-8L Object Detection Service v1.0.0")
+    logger.info("FleeKey Object Detection v1.1.0")
     logger.info("=" * 70)
 
     # Register signal handlers

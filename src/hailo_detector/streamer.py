@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Optional
 from flask import Flask, Response, render_template_string, jsonify
 from .config import StreamConfig
+from .monitor import SystemMonitor
 
 
 logger = logging.getLogger(__name__)
@@ -48,6 +49,9 @@ class MJPEGStreamer:
         }
         self.stats_lock = threading.Lock()
         self.start_time = time.time()
+
+        # System monitor
+        self.system_monitor = SystemMonitor()
 
         # Setup routes
         self._setup_routes()
@@ -105,14 +109,19 @@ class MJPEGStreamer:
                     'total_frames': self.stats['total_frames']
                 })
 
+        @self.app.route('/api/system')
+        def system():
+            """System monitoring endpoint."""
+            return jsonify(self.system_monitor.get_all_stats())
+
     def _get_minimal_ui(self) -> str:
         """Get minimal fallback UI."""
         return """
         <!DOCTYPE html>
         <html>
-        <head><title>Hailo Detector</title></head>
+        <head><title>FleeKey Object Detection</title></head>
         <body>
-            <h1>Hailo Object Detector</h1>
+            <h1>FleeKey Object Detection</h1>
             <img src="/stream" style="max-width: 100%;">
         </body>
         </html>
